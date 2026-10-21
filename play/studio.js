@@ -51,3 +51,22 @@
  fixLevels();
  new MutationObserver(function(){fixLevels()}).observe(document.getElementById('storyLibrary')||document.body,{subtree:true,childList:true,characterData:true});
 })();
+/* Row-fit guard: switch the play header / action rows to icon-only buttons when their content would overflow. */
+(function(){
+ function over(row){if(!row||!row.offsetParent)return false;var r=row.getBoundingClientRect();if(row.scrollWidth>row.clientWidth+1)return true;
+  for(var i=0;i<row.children.length;i++){var c=row.children[i];if(c.offsetParent&&(c.getBoundingClientRect().right>r.right+1||c.scrollWidth>c.clientWidth+2))return true;}return false;}
+ var busy=false;
+ function fit(){if(busy)return;busy=true;try{['#play .play-nav','#play .polish-actions'].forEach(function(s){var row=document.querySelector(s);if(!row)return;row.classList.remove('mp-compact');if(over(row))row.classList.add('mp-compact');});}finally{busy=false;}}
+ window.mpFit=fit;
+ var t=null;function soon(){clearTimeout(t);t=setTimeout(fit,30);}
+ addEventListener('resize',soon);addEventListener('orientationchange',soon);
+ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(soon);
+ var play=document.getElementById('play');
+ if(play)new MutationObserver(function(m){for(var i=0;i<m.length;i++){var x=m[i];if(x.type==='attributes'&&x.target.matches&&x.target.matches('.play-nav,.polish-actions'))continue;soon();return;}}).observe(play,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','hidden']});
+ soon();
+})();
+/* Stage-list back button was always English ("Back"). */
+(function(){
+ function lab(){var b=document.getElementById('backMenu');if(!b)return;var l=document.documentElement.lang||'en';var t=l==='th'?'‹ กลับ':'‹ '+((typeof TR==='function'&&TR('Back'))||'Back');if(b.textContent!==t)b.textContent=t;}
+ lab();new MutationObserver(lab).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
+})();
