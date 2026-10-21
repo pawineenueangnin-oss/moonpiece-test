@@ -70,3 +70,56 @@
  function lab(){var b=document.getElementById('backMenu');if(!b)return;var l=document.documentElement.lang||'en';var t=l==='th'?'‹ กลับ':'‹ '+((typeof TR==='function'&&TR('Back'))||'Back');if(b.textContent!==t)b.textContent=t;}
  lab();new MutationObserver(lab).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 })();
+/* 1.0.2: opt-in rewarded "+1 star" on the result card (Android app only). Never automatic; a "No thanks" choice;
+   reward only after the full ad (native calls grantHintReward only when the reward was earned). */
+(function(){
+ function T(th,en){var l=document.documentElement.lang||'en';if(l==='th')return th;try{return typeof TR==='function'?TR(en):en}catch(e){return en}}
+ var win=document.getElementById('win');if(!win)return;
+ var pending=null; // {level,stage,stars}
+ var used={};      // one +1 star per stage per app session
+ var baseGrant=window.grantHintReward,baseUnlock=window.unlockHintUi;
+ window.grantHintReward=function(){if(pending){var p=pending;pending=null;giveStar(p);return;}return baseGrant&&baseGrant.apply(this,arguments);};
+ window.unlockHintUi=function(){if(pending){pending=null;setBusy(false);toast(T('ยังไม่ได้รับดาว ลองใหม่ภายหลังได้','No star this time. You can try again later.'));return;}return baseUnlock&&baseUnlock.apply(this,arguments);};
+ function toast(t){try{if(typeof storyToast==='function'){storyToast(t);return;}}catch(e){}}
+ var btn=document.createElement('button');btn.id='rewardStar';btn.type='button';btn.className='btn win-btn reward-star';
+ var css=document.createElement('style');css.textContent='#rewardStar{background:linear-gradient(#fff3cf,#f1d58f)!important;color:#4a3410!important;border:2px dashed #c79a3c!important;font-weight:700}#rewardStar small{display:block;font-weight:500;font-size:.78em;opacity:.8}#rewardStar[disabled]{opacity:.55}.reward-ask .pg-row button{flex:1;min-height:48px}.reward-ask .ad-label{display:inline-block;background:#c79a3c;color:#fff;border-radius:6px;padding:0 6px;font-size:12px;margin-left:4px}';document.head.append(css);
+ function stars(){var t=(document.getElementById('stars')||{}).textContent||'';return (t.match(/★/g)||[]).length;}
+ function setBusy(b){btn.disabled=b;}
+ function canOffer(){try{return !!(window.AndroidAds&&AndroidAds.showRewarded)&&storyMode&&!customPlay&&stars()<3&&!used[STORY_DATA.id+'|'+level+'|'+stage];}catch(e){return false}}
+ function refresh(){
+  if(!win.classList.contains('show')){btn.remove();return;}
+  if(!canOffer()){btn.remove();return;}
+  btn.innerHTML='▶ '+T('ดูโฆษณา · รับ +1 ดาว','Watch an ad · Get +1 star')+'<small>'+T('ไม่บังคับ ไม่ดูก็เล่นต่อได้','Optional — you can keep playing without it')+'</small>';
+  setBusy(false);
+  var acts=win.querySelector('.win-actions');var next=document.getElementById('nextBtn');
+  if(acts&&btn.parentNode!==acts)acts.insertBefore(btn,next&&next.nextSibling);
+ }
+ function giveStar(p){
+  used[p.key]=true;
+  var n=Math.min(3,p.stars+1);
+  try{saveStoryStars(p.level,p.stage,n);}catch(e){}
+  var s=document.getElementById('stars');if(s)s.textContent='★'.repeat(n)+'☆'.repeat(3-n);
+  var lab=document.getElementById('starsLabel');if(lab)lab.textContent=T(n+' / 3 ดาว',n+' / 3 stars');
+  try{if(typeof earnedBadge==='function'&&earnedBadge(p.level))writeProgress(storyStoragePrefix()+'-badge-'+p.level,'1');}catch(e){}
+  try{if(typeof refreshStoryProgress==='function')refreshStoryProgress();}catch(e){}
+  btn.remove();toast(T('ได้รับ +1 ดาวแล้ว ⭐','+1 star added ⭐'));
+ }
+ function ask(){
+  var d=document.createElement('dialog');d.className='story-dialog parent-gate reward-ask';d.id='rewardAsk';
+  d.innerHTML='<h2></h2><p></p><div class="pg-row"><button class="no"></button><button class="yes"></button></div>';
+  d.querySelector('h2').innerHTML=T('รับ +1 ดาว','Get +1 star')+' <span class="ad-label">'+T('โฆษณา','Ad')+'</span>';
+  d.querySelector('p').textContent=T('ดูโฆษณาสั้น ๆ จนจบเพื่อรับดาวเพิ่ม 1 ดวงในด่านนี้ ถ้าปิดก่อนจบจะไม่ได้รับดาว','Watch a short ad to the end to add 1 star to this stage. Closing it early gives no star.');
+  d.querySelector('.no').textContent=T('ไม่เป็นไร','No thanks');
+  d.querySelector('.yes').textContent='▶ '+T('ดูโฆษณา','Watch ad');
+  d.querySelector('.no').onclick=function(){d.close()};
+  d.querySelector('.yes').onclick=function(){d.close();
+   pending={level:level,stage:stage,stars:stars(),key:STORY_DATA.id+'|'+level+'|'+stage};setBusy(true);
+   try{if(typeof stopMusic==='function')stopMusic();}catch(e){}
+   try{AndroidAds.showRewarded();}catch(e){window.unlockHintUi();}
+   setTimeout(function(){if(pending){window.unlockHintUi();}},90000);};
+  d.addEventListener('close',function(){d.remove()},{once:true});document.body.append(d);d.showModal();
+ }
+ btn.onclick=ask;
+ new MutationObserver(refresh).observe(win,{attributes:true,attributeFilter:['class']});
+ var pb=window.androidBack;window.androidBack=function(){var a=document.getElementById('rewardAsk');if(a&&a.open){a.close();return true;}return pb?pb():false;};
+})();

@@ -138,10 +138,13 @@ document.querySelectorAll('button').forEach(b=>{if(b.onclick===baseSettings)b.on
    while a piece is touched and for 500ms after release. */
 const playEl=document.getElementById('play'),winEl=document.getElementById('win'),cinemaEl=document.getElementById('storyCinema');
 function playVisible(){return !playEl.classList.contains('hide')&&!playEl.hidden;}
+// 1.0.2: banner only on menu screens (home / story library / story detail / stage picker).
+// Never during puzzle play, story scenes, the result card, or while ANY pop-up (dialog) is open.
+function pickerVisible(){const p=document.getElementById('picker');return !!p&&!p.classList.contains('hide')&&!p.hidden;}
 function wantBanner(){
- if(book.open||(cinemaEl&&!cinemaEl.hidden)||document.getElementById('inter')?.classList.contains('show'))return false;
- if(menuVisible())return true;
- return playVisible()&&!playEl.classList.contains('win-open')&&!winEl.classList.contains('show');
+ if(document.querySelector('dialog[open]')||(cinemaEl&&!cinemaEl.hidden)||document.getElementById('inter')?.classList.contains('show'))return false;
+ if(playVisible())return false;
+ return menuVisible()||pickerVisible();
 }
 let lastBanner=null;
 function syncBanner(){
@@ -153,6 +156,9 @@ window.syncBanner=syncBanner;
 const baseShow2=show;show=function(el){baseShow2(el);lastBanner=null;syncBanner();};
 const mo=new MutationObserver(()=>syncBanner());
 for(const n of [playEl,winEl,cinemaEl,document.getElementById('inter'),document.getElementById('menu')])if(n)mo.observe(n,{attributes:true,attributeFilter:['class','hidden']});
+const pk=document.getElementById('picker');if(pk)mo.observe(pk,{attributes:true,attributeFilter:['class','hidden']});
+// any dialog opening/closing (parental gate, privacy, helpers, settings, first-time help, story book...)
+new MutationObserver(()=>syncBanner()).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
 let touchTimer=null,bannerLocked=false;
 function setBannerTouchable(on){
  if(bannerLocked===!on)return;bannerLocked=!on;
